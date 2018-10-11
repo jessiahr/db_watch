@@ -5,8 +5,10 @@ defmodule DbWatch.DatabaseSource do
 	@batch_size 1000
   @db_timeout 30_000
 
+  @offset_manager_module Application.get_env(:db_watch, :offset_manager)
   def start_link(params) do
-    offset = OffsetManager.get(params.id)
+
+    offset = apply(@offset_manager_module, :get, [params.id])
     GenServer.start_link(__MODULE__, %{db_connection: params.conn, db_type: params.db_type, last_message_at: offset, offset_id: params.id, table: params.table})
   end
 
@@ -23,7 +25,8 @@ defmodule DbWatch.DatabaseSource do
     |> format_results(db_type)
 
     new_offset = last_timestamp_for_batch(state, batch)
-    |> OffsetManager.put(offset_id)
+
+    apply(@offset_manager_module, :put, [new_offset, offset_id])
 
   	new_state = Map.put(state, :last_message_at, new_offset)
     {:reply, batch, new_state}
